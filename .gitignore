@@ -1,0 +1,55 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependency directories
+node_modules
+
+# Build output
+dist
+dist-ssr
+
+# Local env files
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Tauri/Rust build output
+src-tauri/target/
+src-tauri/gen/ffmpeg-bin/
+src-tauri/gen/whisper-bin/
+# schemas already ignored in src-tauri/.gitignore
+
+# ffmpeg and whisper.cpp build output 
+ffmpeg/ffmpeg
+ffmpeg/ffplay
+ffmpeg/ffprobe
+ffmpeg/*_g
+ffmpeg/build/
+whisper.cpp/build/
+whisper.cpp/main
+whisper.cpp/stream
+whisper.cpp/command
+whisper.cpp/talk
+whisper.cpp/bench
+whisper.cpp/quantize
+whisper.cpp/server
+whisper.cpp/lsp
+
+# Sample media files
+src-tauri/samples/*.MOV
+src-tauri/samples/*.wav
