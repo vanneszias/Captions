@@ -2,6 +2,7 @@ import React from "react";
 import { FaCloudUploadAlt, FaTrash } from "react-icons/fa";
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { readFile } from '@tauri-apps/plugin-fs';
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 
 type FileUploadProps = {
     filePath: string | null;
@@ -11,6 +12,18 @@ type FileUploadProps = {
 
 const FileUpload: React.FC<FileUploadProps> = ({ filePath, setFilePath, disabled }) => {
     const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
+    const [warning, setWarning] = React.useState<string | null>(null);
+
+    // Supported extensions
+    const supportedExtensions = ['mp4', 'mov', 'avi', 'mp3', 'wav', 'm4a'];
+    const mimeMap: Record<string, string> = {
+        mp4: 'video/mp4',
+        mov: 'video/quicktime',
+        avi: 'video/x-msvideo',
+        mp3: 'audio/mpeg',
+        wav: 'audio/wav',
+        m4a: 'audio/mp4',
+    };
 
     React.useEffect(() => {
         let url: string | null = null;
@@ -18,29 +31,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ filePath, setFilePath, disabled
             readFile(filePath)
                 .then((data: Uint8Array) => {
                     const ext = filePath.split('.').pop()?.toLowerCase();
-                    let mime = '';
-                    switch (ext) {
-                        case 'mp4':
-                            mime = 'video/mp4';
-                            break;
-                        case 'mov':
-                            mime = 'video/quicktime';
-                            break;
-                        case 'avi':
-                            mime = 'video/x-msvideo';
-                            break;
-                        case 'mp3':
-                            mime = 'audio/mpeg';
-                            break;
-                        case 'wav':
-                            mime = 'audio/wav';
-                            break;
-                        case 'm4a':
-                            mime = 'audio/mp4';
-                            break;
-                        default:
-                            mime = '';
-                    }
+                    const mime = ext && supportedExtensions.includes(ext) ? mimeMap[ext] : '';
                     const blob = new Blob([data], { type: mime });
                     url = URL.createObjectURL(blob);
                     setPreviewUrl(url);
@@ -53,6 +44,30 @@ const FileUpload: React.FC<FileUploadProps> = ({ filePath, setFilePath, disabled
             if (url) URL.revokeObjectURL(url);
         };
     }, [filePath]);
+
+    // Listen for Tauri drag-and-drop events for file paths
+    React.useEffect(() => {
+        let unlisten: (() => void) | undefined;
+        getCurrentWebview().onDragDropEvent((event) => {
+            if (event.payload.type === 'drop') {
+                const paths = event.payload.paths;
+                if (paths && paths.length > 0) {
+                    const ext = paths[0].split('.').pop()?.toLowerCase();
+                    if (ext && supportedExtensions.includes(ext)) {
+                        setFilePath(paths[0]);
+                    } else {
+                        setWarning('Unsupported file type. Please select a supported audio or video file.');
+                        setTimeout(() => setWarning(null), 4000);
+                    }
+                }
+            }
+        }).then((fn) => {
+            unlisten = fn;
+        });
+        return () => {
+            if (unlisten) unlisten();
+        };
+    }, [setFilePath, disabled]);
 
     const handlePickFile = async () => {
         const result = await openDialog({
@@ -70,6 +85,11 @@ const FileUpload: React.FC<FileUploadProps> = ({ filePath, setFilePath, disabled
             <label className="block text-sm font-semibold mb-2 text-gray-700 dark:text-gray-200">
                 Select Audio or Video File
             </label>
+            {warning && (
+                <div className="mb-2 text-xs text-red-600 dark:text-red-400 font-medium animate-pulse">
+                    {warning}
+                </div>
+            )}
             {!filePath ? (
                 <div className="relative group w-full">
                     <button
@@ -79,7 +99,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ filePath, setFilePath, disabled
                         disabled={disabled}
                     >
                         <FaCloudUploadAlt className="text-3xl text-blue-400 mb-2" />
-                        <span className="text-gray-500 dark:text-gray-300 text-sm">Click to pick a file</span>
+                        <span className="text-gray-500 dark:text-gray-300 text-sm">Click or drop a file here</span>
                     </button>
                 </div>
             ) : (
