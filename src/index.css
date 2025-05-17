@@ -159,14 +159,14 @@ button, .btn, .Button {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: #4ade80; /* emerald-400 */
   border-radius: 8px;
   border: 2px solid transparent;
   background-clip: padding-box;
   transition: background 0.2s;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--primary);
+  background: #4ade80; /* emerald-400 */
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -174,10 +174,10 @@ button, .btn, .Button {
 
 /* Dark mode scrollbar overrides */
 .dark ::-webkit-scrollbar-thumb {
-  background: oklch(0.21 0.006 285.885 / 0.7); /* dark card color, semi-transparent */
+  background: #166534; /* emerald-900 */
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.696 0.17 162.48 / 0.8); /* dark primary color, more visible */
+  background: #166534; /* emerald-900 */
 }
 
 /* For Firefox */
@@ -187,4 +187,24 @@ html {
 }
 .dark html {
   scrollbar-color: oklch(0.21 0.006 285.885 / 0.7) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #4ade80; /* emerald-400 */
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.custom-scrollbar::-webkit-scrollbar-thumb:active {
+  background: #4ade80; /* emerald-400 */
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb,
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:active {
+  background: #166534; /* emerald-900 */
 }

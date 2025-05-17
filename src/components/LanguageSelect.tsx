@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
-import { FaChevronUp } from "react-icons/fa";
+import { FaChevronDown, FaChevronUp } from "react-icons/fa";
+import ExpandableList from "./ExpandableList";
+import LanguageItem from "./LanguageItem";
 
 type Language = {
     code: string;
@@ -11,6 +13,9 @@ type LanguageSelectProps = {
     selectedLanguage: string;
     setSelectedLanguage: (code: string) => void;
     disabled?: boolean;
+    collapsed: boolean;
+    setCollapsed: (collapsed: boolean) => void;
+    closeOtherMenu: () => void;
 };
 
 const LanguageSelect: React.FC<LanguageSelectProps> = ({
@@ -18,24 +23,14 @@ const LanguageSelect: React.FC<LanguageSelectProps> = ({
     selectedLanguage,
     setSelectedLanguage,
     disabled,
+    collapsed,
+    setCollapsed,
+    closeOtherMenu,
 }) => {
-    const [collapsed, setCollapsed] = useState(true);
-    const [isAnimating, setIsAnimating] = useState(false);
-    const listRef = useRef<HTMLDivElement>(null);
     const [searchBuffer, setSearchBuffer] = useState("");
     const searchTimeout = useRef<NodeJS.Timeout | null>(null);
     const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
     const [scrollToIdx, setScrollToIdx] = useState<number | null>(null);
-
-    useEffect(() => {
-        if (listRef.current) {
-            setIsAnimating(true);
-            const handle = () => setIsAnimating(false);
-            const node = listRef.current;
-            node.addEventListener('transitionend', handle);
-            return () => node.removeEventListener('transitionend', handle);
-        }
-    }, [collapsed]);
 
     useEffect(() => {
         if (!collapsed) {
@@ -74,81 +69,57 @@ const LanguageSelect: React.FC<LanguageSelectProps> = ({
         }
     }, [collapsed, searchBuffer, languages]);
 
-    // Scroll after animation completes
     useEffect(() => {
-        if (!isAnimating && scrollToIdx !== null && buttonRefs.current[scrollToIdx]) {
+        if (scrollToIdx !== null && buttonRefs.current[scrollToIdx]) {
             buttonRefs.current[scrollToIdx]?.scrollIntoView({ block: 'nearest' });
             setScrollToIdx(null);
         }
-    }, [isAnimating, scrollToIdx]);
+    }, [scrollToIdx]);
 
     const selected = languages.find(l => l.code === selectedLanguage);
+    const headerLabel = `Language: ${selected ? selected.name : ''}`;
+    const headerIcon = collapsed ? <FaChevronDown /> : <FaChevronUp />;
 
     return (
-        <div className="mb-4">
+        <ExpandableList
+            collapsed={collapsed}
+            setCollapsed={val => {
+                setCollapsed(val);
+                if (!val) closeOtherMenu();
+                setSearchBuffer("");
+            }}
+            headerLabel={headerLabel}
+            headerIcon={headerIcon}
+            disabled={disabled}
+            className="mt-4 mb-4"
+        >
             <div
-                className={`flex items-center justify-between mb-2 ${!collapsed ? 'cursor-pointer' : ''}`}
-                onClick={() => { if (!collapsed) { setCollapsed(true); setSearchBuffer(""); } }}
-                style={{ minHeight: '2.5rem', userSelect: 'none' }}
+                className="flex flex-col gap-3 pr-1 custom-scrollbar mt-2"
+                style={{
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    maxHeight: 200,
+                }}
+                aria-hidden={collapsed}
             >
-                <span className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
-                    Language
-                </span>
-                {!collapsed && (
-                    <span className="p-1 text-blue-500 hover:text-blue-700">
-                        <FaChevronUp />
-                    </span>
-                )}
+                {!collapsed && languages.map((lang, idx) => (
+                    <LanguageItem
+                        key={lang.code}
+                        language={lang}
+                        selected={selectedLanguage === lang.code}
+                        onClick={() => {
+                            setSelectedLanguage(lang.code);
+                            setCollapsed(true);
+                            setSearchBuffer("");
+                        }}
+                        disabled={disabled}
+                        highlight={searchBuffer}
+                        buttonRef={el => buttonRefs.current[idx] = el}
+                    />
+                ))}
             </div>
-            {collapsed && selected ? (
-                <button
-                    type="button"
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg border bg-white/60 dark:bg-gray-900/60 shadow-sm border-blue-400 ring-2 ring-blue-200 dark:ring-blue-500 w-full text-left"
-                    onClick={() => { setCollapsed(false); setSearchBuffer(""); }}
-                    aria-label="Expand language list"
-                    disabled={disabled}
-                >
-                    <span className="flex-1 cursor-pointer select-none text-base text-gray-800 dark:text-gray-100">{selected.name}</span>
-                    <span className="ml-2 text-blue-500">▼</span>
-                </button>
-            ) : (
-                <div
-                    ref={listRef}
-                    className={`flex flex-col gap-3 pr-1 transition-all duration-300 ease-in-out ${collapsed || isAnimating ? 'overflow-hidden' : 'overflow-auto'}`}
-                    style={{ maxHeight: collapsed ? 0 : 384 }}
-                >
-                    {languages.map((lang, idx) => {
-                        // Highlight logic
-                        let nameContent: React.ReactNode = lang.name;
-                        if (searchBuffer && lang.name.toLowerCase().startsWith(searchBuffer)) {
-                            nameContent = (
-                                <>
-                                    <span className="font-bold text-blue-600 dark:text-blue-400">{lang.name.slice(0, searchBuffer.length)}</span>
-                                    <span>{lang.name.slice(searchBuffer.length)}</span>
-                                </>
-                            );
-                        }
-                        return (
-                            <button
-                                key={lang.code}
-                                ref={el => buttonRefs.current[idx] = el}
-                                type="button"
-                                className={`flex items-center gap-3 px-3 py-2 rounded-lg border transition-colors bg-white/60 dark:bg-gray-900/60 shadow-sm ${selectedLanguage === lang.code ? 'border-blue-400 ring-2 ring-blue-200 dark:ring-blue-500' : 'border-gray-200 dark:border-gray-800'} hover:border-blue-300 cursor-pointer`}
-                                onClick={() => {
-                                    setSelectedLanguage(lang.code);
-                                    setCollapsed(true);
-                                    setSearchBuffer("");
-                                }}
-                                disabled={disabled}
-                            >
-                                <span className={`flex-1 cursor-pointer select-none text-base ${selectedLanguage === lang.code ? 'text-blue-700 dark:text-blue-300' : 'text-gray-800 dark:text-gray-100'}`}>{nameContent}</span>
-                            </button>
-                        );
-                    })}
-                </div>
-            )}
-        </div>
+        </ExpandableList>
     );
 };
 
-export default LanguageSelect; 
+export default LanguageSelect;

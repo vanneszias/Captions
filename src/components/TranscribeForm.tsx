@@ -40,33 +40,42 @@ const TranscribeForm: React.FC<TranscribeFormProps> = ({
     languages,
     selectedLanguage,
     setSelectedLanguage,
-}) => (
-    <Card className="w-full max-w-md mx-auto">
-        <FileUpload filePath={filePath} setFilePath={setFilePath} disabled={uploading || disabled} />
-        <ModelSelect
-            models={models}
-            selectedModel={selectedModel}
-            setSelectedModel={setSelectedModel}
-            disabled={uploading || disabled}
-            onDownloadModel={onDownloadModel}
-            onRemoveModel={onRemoveModel}
-        />
-        <LanguageSelect
-            languages={languages}
-            selectedLanguage={selectedLanguage}
-            setSelectedLanguage={setSelectedLanguage}
-            disabled={uploading || disabled}
-        />
-        <Button
-            size="lg"
-            className="w-full mt-2"
-            disabled={!filePath || uploading || disabled}
-            onClick={handleUpload}
-        >
-            {uploading ? "Uploading..." : "Upload & Transcribe"}
-        </Button>
-        <TranscriptionResult subtitle={subtitle} error={error} />
-    </Card>
-);
+}) => {
+    const [openMenu, setOpenMenu] = React.useState<null | 'model' | 'language'>(null);
+    return (
+        <Card className="w-full max-w-md mx-auto">
+            <FileUpload filePath={filePath} setFilePath={setFilePath} disabled={uploading || disabled} />
+            <ModelSelect
+                models={models}
+                selectedModel={selectedModel}
+                setSelectedModel={setSelectedModel}
+                disabled={uploading || disabled}
+                onDownloadModel={onDownloadModel}
+                onRemoveModel={onRemoveModel}
+                collapsed={openMenu !== 'model'}
+                setCollapsed={collapsed => setOpenMenu(collapsed ? null : 'model')}
+                closeOtherMenu={() => setOpenMenu('model')}
+            />
+            <LanguageSelect
+                languages={languages}
+                selectedLanguage={selectedLanguage}
+                setSelectedLanguage={setSelectedLanguage}
+                disabled={uploading || disabled}
+                collapsed={openMenu !== 'language'}
+                setCollapsed={collapsed => setOpenMenu(collapsed ? null : 'language')}
+                closeOtherMenu={() => setOpenMenu('language')}
+            />
+            <Button
+                size="lg"
+                className="w-full mt-2"
+                disabled={!filePath || uploading || disabled}
+                onClick={handleUpload}
+            >
+                {uploading ? "Uploading..." : "Upload & Transcribe"}
+            </Button>
+            <TranscriptionResult subtitle={subtitle} error={error} />
+        </Card>
+    );
+};
 
 export default TranscribeForm; 
