@@ -2,7 +2,7 @@
 
 🎬 **Captions** is a beautiful, privacy-first desktop app to create accurate subtitles from your audio and video files. Everything runs locally on your device, powered by [Whisper](https://github.com/openai/whisper) and [FFmpeg](https://ffmpeg.org/), with a modern UI built using React, Tauri, and TypeScript.
 
-> 🚀 **Just want to use the app?** Check the [Releases](https://github.com/yourusername/yourrepo/releases) section to download the latest version and skip the setup!
+> 🚀 **Just want to use the app?** Check the [Releases](https://github.com/vanneszias/captions/releases) section to download the latest version and skip the setup!
 
 ---
 
@@ -59,7 +59,7 @@
 - 🟢 [Node.js](https://nodejs.org/) (v18+ recommended)
 - 📦 [pnpm](https://pnpm.io/) (or use npm/yarn, but pnpm is recommended)
 - 🦀 [Rust](https://www.rust-lang.org/tools/install) (for Tauri backend)
-- 🛠️ [Tauri CLI](https://tauri.app/v2/guides/getting-started/prerequisites/) (`cargo install tauri-cli`)
+- 🛠️ [Tauri CLI](https://tauri.app/) (`cargo install tauri-cli`)
 - 🍏 macOS (other platforms may work but are not officially supported as of now)
 
 ### 1️⃣ Install dependencies
