@@ -28,4 +28,12 @@ mkdir -p $OUT_DIR
 cp $WHISPER_DIR/build/bin/whisper-cli $OUT_BIN
 chmod +x $OUT_BIN
 
+# Copy dynamic library if it exists
+if [ -f "$WHISPER_DIR/build/src/libwhisper.1.dylib" ]; then
+  cp "$WHISPER_DIR/build/src/libwhisper.1.dylib" "$OUT_DIR/"
+  echo "libwhisper.1.dylib copied to $OUT_DIR/"
+else
+  echo "Warning: libwhisper.1.dylib not found in $WHISPER_DIR/build/src/"
+fi
+
 echo "whisper.cpp built and binary copied to $OUT_BIN" 
