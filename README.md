@@ -122,4 +122,4 @@ PRs and issues are welcome! Please open an issue if you have questions or sugges
 
 ## 📄 License
 
-MIT
+[MIT](LICENSE)
