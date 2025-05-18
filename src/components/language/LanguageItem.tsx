@@ -31,7 +31,7 @@ const LanguageItem: React.FC<LanguageItemProps> = ({ language, selected, onClick
             className={`flex items-center gap-3 px-3 py-2 rounded-lg border transition-colors bg-white/60 dark:bg-gray-900/60 shadow-sm
                 ${selected ? 'border-blue-400' : 'border-gray-200 dark:border-gray-800'}
                 hover:border-blue-300 cursor-pointer text-left hover:bg-blue-50 dark:hover:bg-blue-900
-                focus:outline-none`}
+                focus:outline-none transition-transform duration-150 `}
             onClick={onClick}
             disabled={disabled}
         >

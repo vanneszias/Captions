@@ -7,36 +7,47 @@ interface RunWhisperArgs {
     language: string;
 }
 
+/**
+ * Validates the arguments for running Whisper.
+ * @param args - The arguments to validate.
+ * @returns An error string if invalid, or null if valid.
+ */
+function validateWhisperArgs(args: RunWhisperArgs): string | null {
+    if (!args.model) return "No model selected";
+    if (!args.audio?.path) return "Audio file path is missing.";
+    if (!args.language) return "Language is missing.";
+    return null;
+}
+
+/**
+ * Hook for running Whisper transcription via Tauri backend.
+ * Provides output, error, loading state, and a runWhisper function.
+ */
 export function useWhisper() {
     const [output, setOutput] = useState<string>("");
     const [error, setError] = useState<string>("");
     const [loading, setLoading] = useState(false);
 
-    async function runWhisper({ model, audio, language }: RunWhisperArgs) {
+    /**
+     * Runs Whisper transcription with the given arguments.
+     * @param args - The arguments for transcription.
+     */
+    async function runWhisper(args: RunWhisperArgs) {
         setError("");
         setOutput("");
-        if (!model) {
-            setError("No model selected");
-            return;
-        }
-        const filePath = audio.path;
-        if (!filePath) {
-            setError("Audio file path is missing.");
+        const validationError = validateWhisperArgs(args);
+        if (validationError) {
+            setError(validationError);
             return;
         }
         setLoading(true);
-        console.log("Invoking transcribe_file with", {
-            inputPath: filePath,
-            model: model,
-            language,
-        });
         try {
             const result = await invoke<string>("transcribe_file", {
-                inputPath: filePath,
-                model: model,
-                language,
+                inputPath: args.audio.path,
+                model: args.model,
+                language: args.language,
             });
-            setOutput(result);
+            setOutput(prev => (prev !== result ? result : prev));
         } catch (err: any) {
             setError(err?.toString() || "Failed to run whisper");
         } finally {

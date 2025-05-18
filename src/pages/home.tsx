@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import TranscribeForm from "@/components/TranscribeForm";
+import TranscribeForm from "@/components/forms/TranscribeForm";
 import { useTranscription } from "@/hooks/useTranscription";
 
 // Whisper supported languages
@@ -88,6 +88,7 @@ const HomePage = () => {
         onRemoveModel,
         language,
         setLanguage,
+        pauseModelDownload,
     } = useTranscription();
 
     // Dark mode toggle state
@@ -157,6 +158,7 @@ const HomePage = () => {
                     error={error}
                     onDownloadModel={onDownloadModel}
                     onRemoveModel={onRemoveModel}
+                    pauseModelDownload={pauseModelDownload}
                     languages={WHISPER_LANGUAGES}
                     selectedLanguage={language}
                     setSelectedLanguage={setLanguage}
@@ -164,7 +166,7 @@ const HomePage = () => {
             </main>
             <footer className="w-full py-6 flex flex-col items-center border-t border-gray-200 dark:border-gray-800 bg-white/60 dark:bg-gray-900/60 backdrop-blur-md mt-8">
                 <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-                    Created with ❤️ by Zias
+                    Made with ❤️ by Zias
                 </p>
             </footer>
         </div>

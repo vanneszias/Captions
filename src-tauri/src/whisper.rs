@@ -1,36 +1,50 @@
+//! Whisper CLI integration and audio transcription utilities.
+
+use crate::ffmpeg::spawn_ffmpeg_to_wav;
+use crate::models::get_models_dir;
 use std::io::Read;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use tauri::path::BaseDirectory;
 use tauri::AppHandle;
-use tauri::Emitter;
 use tauri::Manager;
 
-#[derive(serde::Serialize)]
-pub struct RemoteModel {
-    pub name: String,
-    pub url: String,
+/// Resolves the path to the whisper binary bundled with the app.
+fn resolve_whisper_bin(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    app.path()
+        .resolve("gen/whisper-bin/whisper", BaseDirectory::Resource)
+        .map_err(|e| format!("[whisper] Failed to resolve whisper binary: {}", e))
 }
 
-#[tauri::command]
-pub fn run_whisper_cli(args: Vec<String>, app: AppHandle) -> Result<String, String> {
-    println!("[run_whisper_cli] called with args: {:?}", args);
-    let bin_path = app
-        .path()
-        .resolve("gen/whisper-bin/whisper", BaseDirectory::Resource)
-        .map_err(|e| e.to_string())?;
-    let output = Command::new(bin_path).args(&args).output().map_err(|e| {
-        println!("[run_whisper_cli] Failed to start whisper CLI: {}", e);
-        format!("Failed to start whisper CLI: {}", e)
-    })?;
+/// Builds the argument list for the whisper CLI.
+fn build_whisper_args(
+    model_path: &str,
+    language: &str,
+    input: &str,
+    is_stdin: bool,
+) -> Vec<String> {
+    let mut args = vec!["-m".into(), model_path.into(), "-l".into(), language.into()];
+    args.push("-f".into());
+    args.push(if is_stdin { "-".into() } else { input.into() });
+    args
+}
+
+/// Runs the whisper CLI with the given arguments and returns the output.
+fn run_whisper_cli_internal(
+    bin_path: &std::path::Path,
+    args: &[String],
+    stdin: Option<Stdio>,
+) -> Result<String, String> {
+    let mut cmd = Command::new(bin_path);
+    cmd.args(args);
+    if let Some(stdin) = stdin {
+        cmd.stdin(stdin);
+    }
+    let output = cmd
+        .output()
+        .map_err(|e| format!("[whisper] Failed to start whisper CLI: {}", e))?;
     if output.status.success() {
-        println!("[run_whisper_cli] Success");
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
-        println!(
-            "[run_whisper_cli] whisper CLI failed: {}\n{}",
-            String::from_utf8_lossy(&output.stderr),
-            String::from_utf8_lossy(&output.stdout)
-        );
         Err(format!(
             "whisper CLI failed: {}\n{}",
             String::from_utf8_lossy(&output.stderr),
@@ -39,104 +53,24 @@ pub fn run_whisper_cli(args: Vec<String>, app: AppHandle) -> Result<String, Stri
     }
 }
 
-fn get_models_dir(app: &tauri::AppHandle) -> std::path::PathBuf {
-    app.path().app_data_dir().unwrap().join("models")
-}
-
+/// Tauri command: Run the whisper CLI with arbitrary arguments.
 #[tauri::command]
-pub fn list_models(app: AppHandle) -> Result<Vec<String>, String> {
-    println!("[list_models] called");
-    let models_dir = get_models_dir(&app);
-    let mut models = Vec::new();
-    if let Ok(entries) = std::fs::read_dir(models_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_file() {
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    models.push(name.to_string());
-                }
-            }
-        }
-    }
-    println!("[list_models] returning models: {:?}", models);
-    Ok(models)
+pub fn run_whisper_cli(args: Vec<String>, app: AppHandle) -> Result<String, String> {
+    let bin_path = resolve_whisper_bin(&app)?;
+    run_whisper_cli_internal(&bin_path, &args, None)
 }
 
-#[tauri::command]
-pub async fn download_model(app: AppHandle, model_name: String) -> Result<(), String> {
-    println!("[download_model] called with model_name: {}", model_name);
-    use futures_util::StreamExt;
-    use reqwest::Client;
-    use tokio::fs as async_fs;
-    use tokio::io::AsyncWriteExt;
-
-    let url = format!(
-        "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/{}",
-        model_name
-    );
-    let models_dir = get_models_dir(&app);
-    if !models_dir.exists() {
-        if let Err(e) = std::fs::create_dir_all(&models_dir) {
-            println!("[download_model] Failed to create models dir: {}", e);
-            return Err(format!("Failed to create models dir: {}", e));
-        }
-    }
-    let dest_path = models_dir.join(&model_name);
-    let client = Client::new();
-    let resp = client.get(&url).send().await.map_err(|e| {
-        println!("[download_model] Failed to download: {}", e);
-        format!("Failed to download: {}", e)
-    })?;
-    let total_size = resp.content_length().unwrap_or(0);
-    let mut stream = resp.bytes_stream();
-    let mut file = async_fs::File::create(&dest_path).await.map_err(|e| {
-        println!("[download_model] Failed to create file: {}", e);
-        format!("Failed to create file: {}", e)
-    })?;
-    let mut downloaded: u64 = 0;
-    let mut last_emit = std::time::Instant::now();
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|e| {
-            println!("[download_model] Failed to read chunk: {}", e);
-            format!("Failed to read chunk: {}", e)
-        })?;
-        let chunk_size = chunk.len();
-        file.write_all(&chunk).await.map_err(|e| {
-            println!("[download_model] Failed to write file: {}", e);
-            format!("Failed to write file: {}", e)
-        })?;
-        downloaded += chunk_size as u64;
-        let progress = if total_size > 0 {
-            (downloaded as f64 / total_size as f64 * 100.0).round() as u64
-        } else {
-            0
-        };
-        if last_emit.elapsed().as_secs_f64() >= 1.0 || progress >= 100 {
-            let _ = app.emit(
-                "model-download-progress",
-                serde_json::json!({
-                    "model": model_name,
-                    "progress": progress,
-                }),
-            );
-            last_emit = std::time::Instant::now();
-        }
-    }
-    // Always emit 100% at the end
-    let _ = app.emit(
-        "model-download-progress",
-        serde_json::json!({
-            "model": model_name,
-            "progress": 100,
-        }),
-    );
-    println!(
-        "[download_model] Model downloaded successfully: {}",
-        model_name
-    );
-    Ok(())
-}
-
+/// Tauri command: Transcribe an audio file using whisper, converting to WAV if needed.
+///
+/// # Arguments
+/// * `app` - Tauri AppHandle
+/// * `input_path` - Path to the input file
+/// * `model` - Model name
+/// * `language` - Language code
+///
+/// # Returns
+/// * `Ok(String)` - Transcription output
+/// * `Err(String)` - Error message
 #[tauri::command]
 pub async fn transcribe_file(
     app: AppHandle,
@@ -144,10 +78,6 @@ pub async fn transcribe_file(
     model: String,
     language: String,
 ) -> Result<String, String> {
-    println!(
-        "[transcribe_file] called with input_path: {}, model: {}, language: {}",
-        input_path, model, language
-    );
     use std::path::Path;
     let ext = Path::new(&input_path)
         .extension()
@@ -155,162 +85,35 @@ pub async fn transcribe_file(
         .unwrap_or("")
         .to_lowercase();
     let is_audio = matches!(ext.as_str(), "wav" | "flac" | "mp3" | "ogg" | "m4a");
-    let bin_path = app
-        .path()
-        .resolve("gen/whisper-bin/whisper", BaseDirectory::Resource)
-        .map_err(|e| e.to_string())?;
-    let ffmpeg_path = app
-        .path()
-        .resolve("gen/ffmpeg-bin/ffmpeg", BaseDirectory::Resource)
-        .map_err(|e| e.to_string())?;
+    let bin_path = resolve_whisper_bin(&app)?;
     let model_path = get_models_dir(&app).join(&model);
-    let mut args = vec![
-        "-m".into(),
-        model_path.to_string_lossy().to_string(),
-        "-l".into(),
-        language.clone(),
-    ];
+    let model_path_str = model_path.to_string_lossy();
     if is_audio && ext == "wav" {
-        args.push("-f".into());
-        args.push(input_path.clone());
-        println!(
-            "[transcribe_file] Running whisper CLI with args: {:?}",
-            args
-        );
-        let output = std::process::Command::new(&bin_path)
-            .args(&args)
-            .output()
-            .map_err(|e| {
-                println!("[transcribe_file] Failed to start whisper CLI: {}", e);
-                format!("Failed to start whisper CLI: {}", e)
-            })?;
-        if output.status.success() {
-            println!("[transcribe_file] Success");
-            Ok(String::from_utf8_lossy(&output.stdout).to_string())
-        } else {
-            println!(
-                "[transcribe_file] whisper CLI failed: {}\n{}",
-                String::from_utf8_lossy(&output.stderr),
-                String::from_utf8_lossy(&output.stdout)
-            );
-            Err(format!(
-                "whisper CLI failed: {}\n{}",
-                String::from_utf8_lossy(&output.stderr),
-                String::from_utf8_lossy(&output.stdout)
-            ))
-        }
+        let args = build_whisper_args(&model_path_str, &language, &input_path, false);
+        run_whisper_cli_internal(&bin_path, &args, None)
     } else {
-        println!("[transcribe_file] Using ffmpeg CLI to convert input");
-        // Use bundled ffmpeg binary
-        let mut ffmpeg = std::process::Command::new(&ffmpeg_path)
-            .args([
-                "-i",
-                &input_path,
-                "-f",
-                "wav",
-                "-ar",
-                "16000",
-                "-ac",
-                "1",
-                "-",
-            ])
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::null())
-            .spawn()
-            .map_err(|e| {
-                println!("[transcribe_file] Failed to start ffmpeg: {}", e);
-                format!("Failed to start ffmpeg: {}", e)
-            })?;
-        args.push("-f".into());
-        args.push("-".into()); // Read from stdin
-        println!(
-            "[transcribe_file] Running whisper CLI with args: {:?}",
-            args
-        );
-        let mut whisper = std::process::Command::new(&bin_path)
+        // Convert to WAV using ffmpeg and pipe to whisper
+        let mut ffmpeg = spawn_ffmpeg_to_wav(&app, &input_path)?;
+        let args = build_whisper_args(&model_path_str, &language, "-", true);
+        let mut whisper = Command::new(&bin_path)
             .args(&args)
             .stdin(ffmpeg.stdout.take().unwrap())
-            .stdout(std::process::Stdio::piped())
+            .stdout(Stdio::piped())
             .spawn()
-            .map_err(|e| {
-                println!("[transcribe_file] Failed to start whisper CLI: {}", e);
-                format!("Failed to start whisper CLI: {}", e)
-            })?;
+            .map_err(|e| format!("[whisper] Failed to start whisper CLI: {}", e))?;
         let mut output = String::new();
         if let Some(mut out) = whisper.stdout.take() {
             if let Err(e) = out.read_to_string(&mut output) {
-                println!("[transcribe_file] Failed to read whisper output: {}", e);
-                return Err(format!("Failed to read whisper output: {}", e));
+                return Err(format!("[whisper] Failed to read whisper output: {}", e));
             }
         }
-        let status = whisper.wait().map_err(|e| {
-            println!("[transcribe_file] Failed to wait for whisper: {}", e);
-            format!("Failed to wait for whisper: {}", e)
-        })?;
+        let status = whisper
+            .wait()
+            .map_err(|e| format!("[whisper] Failed to wait for whisper: {}", e))?;
         if status.success() {
-            println!("[transcribe_file] Success");
             Ok(output)
         } else {
-            println!("[transcribe_file] whisper CLI failed");
-            Err(format!("whisper CLI failed"))
-        }
-    }
-}
-
-#[tauri::command]
-pub fn list_remote_models() -> Vec<RemoteModel> {
-    println!("[list_remote_models] called");
-    vec![
-        RemoteModel {
-            name: "tiny".to_string(),
-            url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin"
-                .to_string(),
-        },
-        RemoteModel {
-            name: "base".to_string(),
-            url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"
-                .to_string(),
-        },
-        RemoteModel {
-            name: "small".to_string(),
-            url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin"
-                .to_string(),
-        },
-        RemoteModel {
-            name: "medium".to_string(),
-            url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin"
-                .to_string(),
-        },
-        RemoteModel {
-            name: "large-v3-turbo".to_string(),
-            url:
-                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin"
-                    .to_string(),
-        },
-    ]
-}
-
-#[tauri::command]
-pub fn remove_model(app: AppHandle, model_name: String) -> Result<(), String> {
-    println!("[remove_model] called with model_name: {}", model_name);
-    let models_dir = get_models_dir(&app);
-    let model_path = models_dir.join(&model_name);
-    println!("[remove_model] full path: {}", model_path.display());
-    match std::fs::remove_file(&model_path) {
-        Ok(_) => {
-            println!(
-                "[remove_model] Successfully removed: {}",
-                model_path.display()
-            );
-            Ok(())
-        }
-        Err(e) => {
-            println!(
-                "[remove_model] Failed to remove: {} - {}",
-                model_path.display(),
-                e
-            );
-            Err(format!("Failed to remove model: {}", e))
+            Err("whisper CLI failed".to_string())
         }
     }
 }

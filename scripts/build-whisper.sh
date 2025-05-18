@@ -6,6 +6,12 @@ WHISPER_DIR="whisper.cpp"
 OUT_DIR="src-tauri/gen/whisper-bin"
 OUT_BIN="$OUT_DIR/whisper"
 
+# Check if binary already exists
+if [ -f "$OUT_BIN" ]; then
+  echo "whisper.cpp binary already exists at $OUT_BIN"
+  exit 0
+fi
+
 # Clone if not present
 if [ ! -d "$WHISPER_DIR" ]; then
   git clone --depth 1 --branch $WHISPER_VERSION https://github.com/ggml-org/whisper.cpp.git $WHISPER_DIR

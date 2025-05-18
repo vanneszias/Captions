@@ -1,8 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useModel } from "./useModel";
 import { useWhisper } from "./useWhisper";
 import { message } from '@tauri-apps/plugin-dialog';
 
+/**
+ * Hook for managing transcription state and actions.
+ * Handles file selection, model selection, language, and running Whisper.
+ */
 export function useTranscription() {
     const [filePath, setFilePath] = useState<string | null>(null);
     const [language, setLanguage] = useState<string>("en"); // Default language
@@ -10,24 +14,29 @@ export function useTranscription() {
         models,
         loading: modelsLoading,
         error: modelsError,
-        downloading,
         downloadModel,
         removeModel,
+        pauseModelDownload,
     } = useModel();
     const [selectedModel, setSelectedModel] = useState<string>("");
     const { output: subtitle, error: whisperError, loading: whisperLoading, runWhisper } = useWhisper();
     const [error, setError] = useState<string>("");
 
-    // Set default selected model when models load
+    /**
+     * Selects the default model when models are loaded.
+     */
     useEffect(() => {
         if (models.length > 0 && !selectedModel) {
             const firstDownloaded = models.find(m => m.status === "downloaded");
-            const chosen = firstDownloaded ? firstDownloaded.name : models[0].name;
-            setSelectedModel(chosen);
+            const chosen = firstDownloaded ? firstDownloaded.key : models[0].key;
+            if (chosen !== selectedModel) setSelectedModel(chosen);
         }
     }, [models, selectedModel]);
 
-    const handleUpload = async () => {
+    /**
+     * Handles uploading and running Whisper transcription.
+     */
+    const handleUpload = useCallback(async () => {
         setError("");
         if (!filePath) {
             setError("No file selected");
@@ -40,7 +49,7 @@ export function useTranscription() {
         try {
             const audioName = (typeof filePath === 'string' && filePath.split('/').pop()) ? filePath.split('/').pop()! : 'file';
             await runWhisper({
-                model: `ggml-${selectedModel}.bin`,
+                model: selectedModel,
                 audio: { name: audioName, path: filePath as string },
                 language,
             });
@@ -48,20 +57,21 @@ export function useTranscription() {
             setError("Failed to run whisper: " + whisperErr?.toString());
             await message(`Error in runWhisper: ${whisperErr}`, { title: "Whisper Error" });
         }
-    };
+    }, [filePath, selectedModel, language, runWhisper]);
 
     return {
         filePath,
         setFilePath,
-        models: models.map(m => ({ key: m.name, downloaded: m.status === "downloaded", downloading: downloading === m.name })),
+        models,
         selectedModel,
         setSelectedModel,
         uploading: whisperLoading,
         handleUpload,
         subtitle,
         error: error || whisperError || modelsError,
-        onDownloadModel: (modelName: string) => downloadModel(modelName),
-        onRemoveModel: (modelName: string) => removeModel(modelName),
+        onDownloadModel: (modelKey: string) => downloadModel(modelKey),
+        onRemoveModel: (modelKey: string) => removeModel(modelKey),
+        pauseModelDownload,
         language,
         setLanguage,
         modelsLoading,

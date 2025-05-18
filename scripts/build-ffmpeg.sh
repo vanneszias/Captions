@@ -6,6 +6,12 @@ FFMPEG_DIR="ffmpeg"
 OUT_DIR="src-tauri/gen/ffmpeg-bin"
 OUT_BIN="$OUT_DIR/ffmpeg"
 
+# Check if binary already exists
+if [ -f "$OUT_BIN" ]; then
+  echo "ffmpeg binary already exists at $OUT_BIN"
+  exit 0
+fi
+
 # Clone if not present
 if [ ! -d "$FFMPEG_DIR" ]; then
   git clone --depth 1 --branch $FFMPEG_VERSION https://github.com/FFmpeg/FFmpeg.git $FFMPEG_DIR

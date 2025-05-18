@@ -1,0 +1,20 @@
+/* src/assets/glow.css */
+.big-glow {
+  box-shadow: 0 0 0 2px var(--color-primary), 0 0 8px 2px var(--color-primary);
+  animation: glow-pulse 1.2s infinite alternate;
+}
+
+.button-disabled,
+button:disabled,
+button[aria-disabled="true"] {
+  cursor: not-allowed !important;
+}
+
+@keyframes glow-pulse {
+  from {
+    box-shadow: 0 0 0 2px var(--color-primary), 0 0 8px 2px var(--color-primary);
+  }
+  to {
+    box-shadow: 0 0 0 3px var(--color-primary), 0 0 12px 4px var(--color-primary);
+  }
+} 

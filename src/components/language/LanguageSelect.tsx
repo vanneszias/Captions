@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { FaChevronDown, FaChevronUp } from "react-icons/fa";
-import ExpandableList from "./ExpandableList";
+import ExpandableList from "@/components/forms/ExpandableList";
 import LanguageItem from "./LanguageItem";
 
 type Language = {
@@ -94,7 +94,7 @@ const LanguageSelect: React.FC<LanguageSelectProps> = ({
             className="mt-4 mb-4"
         >
             <div
-                className="flex flex-col gap-3 pr-1 custom-scrollbar mt-2"
+                className="flex flex-col gap-3 pr-1 custom-scrollbar mt-2 relative z-10 overflow-visible"
                 style={{
                     overflowY: 'auto',
                     overflowX: 'hidden',

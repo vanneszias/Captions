@@ -117,7 +117,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ filePath, setFilePath, disabled
                         <button
                             type="button"
                             onClick={() => setFilePath(null)}
-                            className="relative bg-white/80 dark:bg-gray-900/80 rounded-full p-2 shadow hover:bg-red-100 dark:hover:bg-red-900 transition-colors flex-shrink-0"
+                            className="relative bg-white/80 dark:bg-gray-900/80 rounded-full p-2 shadow hover:bg-red-100 dark:hover:bg-red-900 transition-colors flex-shrink-0 transition-transform duration-150 hover:scale-110 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.5)] focus:shadow-[0_0_8px_2px_rgba(239,68,68,0.7)]"
                             aria-label="Remove file"
                         >
                             <FaTrash className="text-red-500 text-lg" />

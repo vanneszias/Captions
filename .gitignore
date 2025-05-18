@@ -53,3 +53,4 @@ whisper.cpp/lsp
 # Sample media files
 src-tauri/samples/*.MOV
 src-tauri/samples/*.wav
+src-tauri/Cargo.lock
